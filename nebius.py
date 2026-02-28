@@ -10,7 +10,7 @@ load_dotenv()
 
 NEBIUS_MODEL = "openai/gpt-oss-20b"
 API_KEY = os.environ.get("NEBIUS_API_KEY")
-if API_KEY is None:
+if not API_KEY:
     raise ValueError("NEBIUS_API_KEY is not set in environment variables")
 
 _client = AsyncOpenAI(
@@ -21,11 +21,12 @@ _client = AsyncOpenAI(
 _SYSTEM_PROMPT = (
     "You are a software project analyst. Analyse the GitHub repository data "
     "provided and return a JSON object with exactly these three fields:\n\n"
-    '- "summary": 2-3 sentences describing what the project does and its purpose.\n'
+    '- "summary": 1-3 sentences describing what the project does and its purpose.\n'
     '- "technologies": an array of technology, framework, and library names used '
     '(e.g. ["Python", "FastAPI", "PostgreSQL"]).\n'
-    '- "structure": 1-2 sentences describing how the code is organised '
-    "(key directories, architecture pattern, entry points).\n\n"
+    '- "structure": 1-4 sentences describing the project layout. '
+    "Reference key directories using backtick-formatted paths "
+    '(e.g. `src/`, `tests/`, `docs/`) and note the architecture pattern or entry point.\n\n'
     "Return only valid JSON. No markdown, no code blocks, no explanation."
 )
 
