@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[oc]
+*.pyd
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+
+# Environment variables
+.env
+
+# uv
+.python-version
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
