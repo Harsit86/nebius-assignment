@@ -92,33 +92,32 @@ Accepts a GitHub repository URL and returns an LLM-generated summary.
 }
 ```
 
-## Model
+## Which model you chose and why
 
-The service uses `openai/gpt-oss-20b` via the Nebius AI API. It was chosen for its
-large context window (essential for repositories with long READMEs and many files),
-strong instruction-following for structured JSON output, and low inference cost due
-to its 20B parameter size — all while being accessible through the standard OpenAI SDK.
+I am using `openai/gpt-oss-20b` because it has support for large context window which is essential for repositories with long READMEs and many files,
+strong reasoning capability and instruction-following for structured JSON output.
+Furthermore, compute and inference costs are low due to its 20B parameter size.
 
-## Repository Content Strategy
+## Approach to handling repository contents
 
-The goal is to maximise signal sent to the LLM while minimising API calls and token usage.
+My goal  wasto maximise signal sent to the LLM while minimising API calls and token usage.
 
-**What we fetch:**
+**What I fetched:**
 
 - **Repo metadata** (name, description, language, topics, stars) — free from the GitHub
   API, zero extra requests, high signal.
-- **README** — the author's own description of the project; the single best signal.
-- **Full file tree** — fetched in one API call with the recursive tree endpoint. Gives
+- **README** - the author's own description of the project; the single best signal.
+- **Full file tree** - fetched in one API call with the recursive tree endpoint. Gives
   the LLM the shape of the project without downloading any file content.
-- **All root-level files** — config and manifest files (`pyproject.toml`, `package.json`,
+- **All root-level files** - config and manifest files (`pyproject.toml`, `package.json`,
   `Dockerfile`, etc.) live at the root and reveal language, dependencies, and
   infrastructure. Fetching everything at the root is language-agnostic and avoids
   hardcoding specific filenames.
 
-**What we skip:**
+**What I skip:**
 
 Any file larger than 100 KB is excluded, using the size metadata returned by the GitHub
 tree API (no extra requests needed). This single rule efficiently filters out lock files,
-generated bundles, large data files, and binary assets — all content that adds tokens
+generated bundles, large data files, and binary assets. This excludes all content that adds tokens
 but no analytical value. Subdirectory source files are also skipped; the tree listing
 already tells the LLM how the code is organised without the cost of fetching every file.
