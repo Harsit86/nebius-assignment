@@ -2,20 +2,21 @@
 
 A FastAPI service that accepts a GitHub repository URL and returns an LLM-generated summary.
 
-## Requirements
-
-- Python 3.11
-- [uv](https://docs.astral.sh/uv/)
-
 ## Setup
 
-1. Install dependencies:
+1. Install [uv](https://docs.astral.sh/uv/) (Python package manager):
+
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Install dependencies:
 
    ```bash
    make install
    ```
 
-2. Copy the example env file and fill in your API keys:
+3. Copy the example env file and set your API key:
 
    ```bash
    cp .env.example .env
@@ -23,22 +24,19 @@ A FastAPI service that accepts a GitHub repository URL and returns an LLM-genera
 
    Then set `NEBIUS_API_KEY` in `.env`.
 
-3. (Recommended) Add a GitHub personal access token to `.env`:
+4. (Recommended) Add a GitHub personal access token to `.env`:
 
    ```env
    GITHUB_TOKEN=ghp_your_token_here
    ```
 
-   **Why:** The GitHub API allows only 60 unauthenticated requests per hour. This service
-   makes several API calls per repository (metadata, README, file tree, root-level files),
-   so you will hit the limit quickly. A token raises the limit to 5,000 requests per hour.
+   The GitHub API allows only 60 unauthenticated requests per hour. This service makes
+   several API calls per repository, so you will hit the limit quickly. A token raises
+   it to 5,000 requests per hour.
 
-   **How to generate one:**
-   1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
-   2. Click **Generate new token (classic)**
-   3. Give it a name (e.g. `nebius-assignment`)
-   4. No scopes are needed — public repository data is accessible without any permissions
-   5. Click **Generate token** and copy the value into `.env`
+   To generate one: go to [github.com/settings/tokens](https://github.com/settings/tokens),
+   click **Generate new token (classic)**, give it a name, and select no scopes (public
+   repository data requires none). Copy the value into `.env`.
 
 ## Running the API
 
@@ -46,13 +44,13 @@ A FastAPI service that accepts a GitHub repository URL and returns an LLM-genera
 make run_api
 ```
 
+The API will be available at `http://localhost:8000`.
+
 ## Running Tests
 
 ```bash
 make test
 ```
-
-The API will be available at `http://localhost:8000`.
 
 ## API Docs
 
@@ -71,11 +69,11 @@ Accepts a GitHub repository URL and returns an LLM-generated summary.
 
 ```json
 {
-  "url": "https://github.com/owner/repo"
+  "github_url": "https://github.com/owner/repo"
 }
 ```
 
-#### Response
+#### Response (success)
 
 ```json
 {
@@ -85,34 +83,42 @@ Accepts a GitHub repository URL and returns an LLM-generated summary.
 }
 ```
 
+#### Response (error)
+
+```json
+{
+  "status": "error",
+  "message": "Description of what went wrong"
+}
+```
+
 ## Model
 
-The service uses `openai/gpt-oss-20b` via the Nebius AI API. It was chosen because:
+The service uses `openai/gpt-oss-20b` via the Nebius AI API. It was chosen for its
+large context window (essential for repositories with long READMEs and many files),
+strong instruction-following for structured JSON output, and low inference cost due
+to its 20B parameter size — all while being accessible through the standard OpenAI SDK.
 
-- **Lightweight** — 20B parameters keeps inference fast and cost low
-- **High context window** — handles large repositories with long READMEs and many files without truncation
-- **Strong reasoning** — sufficient capability for structured summarisation tasks
-- **OpenAI-compatible API** — works with the standard OpenAI SDK, no custom integration needed
+## Repository Content Strategy
 
-## What did we fetch?
+The goal is to maximise signal sent to the LLM while minimising API calls and token usage.
 
-### Tier 1 — Always fetch (high signal, low size)
+**What we fetch:**
 
-README.md — author-written description, the single best signal
-Repo metadata — description, language, topics, stars (free from GitHub API)
-Package manifests — pyproject.toml, package.json, Cargo.toml, go.mod, requirements.txt — tells you language, dependencies, purpose
+- **Repo metadata** (name, description, language, topics, stars) — free from the GitHub
+  API, zero extra requests, high signal.
+- **README** — the author's own description of the project; the single best signal.
+- **Full file tree** — fetched in one API call with the recursive tree endpoint. Gives
+  the LLM the shape of the project without downloading any file content.
+- **All root-level files** — config and manifest files (`pyproject.toml`, `package.json`,
+  `Dockerfile`, etc.) live at the root and reveal language, dependencies, and
+  infrastructure. Fetching everything at the root is language-agnostic and avoids
+  hardcoding specific filenames.
 
-### Tier 2 — Fetch selectively (medium signal, variable size)
+**What we skip:**
 
-Directory tree — full structure in one API call, no content needed, gives the LLM shape of the project
-Top-level source files — main.py, app.py, index.ts, cmd/ etc.
-Key config files — Dockerfile, docker-compose.yml, .github/workflows/ (CI tells you a lot)
-
-
-### Tier 3 — Skip entirely
-
-Lock files (uv.lock, package-lock.json, yarn.lock)
-Binary files (images, compiled artifacts, fonts)
-Dependency directories (node_modules/, .venv/, \_\_pycache\_\_/)
-Generated/build output (dist/, build/, *.min.js)
-Large data files (*.csv, *.parquet, large *.json)
+Any file larger than 100 KB is excluded, using the size metadata returned by the GitHub
+tree API (no extra requests needed). This single rule efficiently filters out lock files,
+generated bundles, large data files, and binary assets — all content that adds tokens
+but no analytical value. Subdirectory source files are also skipped; the tree listing
+already tells the LLM how the code is organised without the cost of fetching every file.

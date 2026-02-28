@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from github import fetch_repo_contents
@@ -14,8 +15,24 @@ app = FastAPI(
 )
 
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"status": "error", "message": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": str(exc)},
+    )
+
+
 class SummarizeRequest(BaseModel):
-    url: str
+    github_url: str
 
 
 class SummarizeResponse(BaseModel):
@@ -26,6 +43,6 @@ class SummarizeResponse(BaseModel):
 
 @app.post("/summarize", response_model=SummarizeResponse)
 async def summarize(request: SummarizeRequest) -> SummarizeResponse:
-    contents = await fetch_repo_contents(request.url)
+    contents = await fetch_repo_contents(request.github_url)
     result = await summarize_repo(contents)
     return SummarizeResponse(**result)
