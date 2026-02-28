@@ -22,5 +22,5 @@ class SummarizeResponse(BaseModel):
 
 @app.post("/summarize", response_model=SummarizeResponse)
 async def summarize(request: SummarizeRequest) -> SummarizeResponse:
-    metadata = await fetch_repo_metadata(request.url)
+    _metadata = await fetch_repo_metadata(request.url)
     return SummarizeResponse(summary="", technologies=[], structure="")

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from github import fetch_repo_metadata, parse_github_url
+from github import fetch_repo_contents, fetch_repo_metadata, parse_github_url
 
 
 def test_parse_github_url_valid():
@@ -50,7 +50,11 @@ async def test_fetch_repo_metadata_valid():
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_response
 
-    with patch("github.httpx.AsyncClient", return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_client), __aexit__=AsyncMock())):
+    mock_async_client = AsyncMock(
+        __aenter__=AsyncMock(return_value=mock_client),
+        __aexit__=AsyncMock(),
+    )
+    with patch("github.httpx.AsyncClient", return_value=mock_async_client):
         metadata = await fetch_repo_metadata("https://github.com/owner/repo")
 
     assert metadata.name == "owner/repo"
@@ -67,4 +71,27 @@ async def test_fetch_repo_metadata_psf_requests():
     assert metadata.name == "psf/requests"
     assert metadata.description == "A simple, yet elegant, HTTP library."
     assert metadata.language == "Python"
-    assert metadata.topics == ['client', 'cookies', 'forhumans', 'http', 'humans', 'python', 'python-requests', 'requests']
+    assert metadata.topics == [
+        "client",
+        "cookies",
+        "forhumans",
+        "http",
+        "humans",
+        "python",
+        "python-requests",
+        "requests",
+    ]
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_fetch_repo_contents_psf_requests():
+    contents = await fetch_repo_contents("https://github.com/psf/requests")
+
+    assert contents.metadata.name == "psf/requests"
+    assert contents.readme is not None
+    assert len(contents.tree) > 0
+    assert "README.md" in contents.tree
+    assert len(contents.manifests) > 0
+    assert contents.manifests.get("README.md") is not None
+    assert contents.manifests["README.md"].split()[1] == "Requests"
