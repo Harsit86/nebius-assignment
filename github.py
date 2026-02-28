@@ -1,11 +1,17 @@
 import base64
+import os
 from urllib.parse import urlparse
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import HTTPException
+
+load_dotenv()
 
 GITHUB_API_BASE = "https://api.github.com"
 _HEADERS = {"Accept": "application/vnd.github+json"}
+if _token := os.environ.get("GITHUB_TOKEN"):
+    _HEADERS["Authorization"] = f"Bearer {_token}"
 
 _MAX_FILE_SIZE = 100 * 1024  # 100KB
 
@@ -105,7 +111,8 @@ async def fetch_repo_metadata(url: str) -> RepoMetadata:
         )
     if response.status_code != 200:
         raise HTTPException(
-            status_code=502, detail="Failed to fetch repository from GitHub"
+            status_code=502,
+            detail=f"GitHub API error: {response.status_code}",
         )
 
     data = response.json()
@@ -132,7 +139,8 @@ async def fetch_repo_contents(url: str) -> RepoContents:
             )
         if meta_response.status_code != 200:
             raise HTTPException(
-                status_code=502, detail="Failed to fetch repository from GitHub"
+                status_code=502,
+                detail=f"GitHub API error: {meta_response.status_code}",
             )
 
         meta_data = meta_response.json()

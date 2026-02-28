@@ -1,7 +1,11 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from github import fetch_repo_metadata
+from github import fetch_repo_contents
+from nebius import summarize_repo
+
+load_dotenv()
 
 app = FastAPI(
     title="Nebius Assignment",
@@ -22,5 +26,6 @@ class SummarizeResponse(BaseModel):
 
 @app.post("/summarize", response_model=SummarizeResponse)
 async def summarize(request: SummarizeRequest) -> SummarizeResponse:
-    _metadata = await fetch_repo_metadata(request.url)
-    return SummarizeResponse(summary="", technologies=[], structure="")
+    contents = await fetch_repo_contents(request.url)
+    result = await summarize_repo(contents)
+    return SummarizeResponse(**result)
